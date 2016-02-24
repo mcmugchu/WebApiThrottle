@@ -15,6 +15,7 @@ namespace WebApiThrottle
         private ThrottlingCore core;
         private IPolicyRepository policyRepository;
         private ThrottlePolicy policy;
+        private bool logOnly = true;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ThrottlingMiddleware"/> class. 
@@ -196,15 +197,22 @@ namespace WebApiThrottle
                             : "API calls quota exceeded! maximum admitted {0} per {1}.";
 
                         // break execution
-                        response.OnSendingHeaders(state =>
+                        if (logOnly)
                         {
-                            var resp = (OwinResponse)state;
-                            resp.Headers.Add("Retry-After", new string[] { core.RetryAfterFrom(throttleCounter.Timestamp, rateLimitPeriod) });
-                            resp.StatusCode = (int)QuotaExceededResponseCode;
-                            resp.ReasonPhrase = string.Format(message, rateLimit, rateLimitPeriod);
-                        }, response);
+                            break;
+                        }
+                        else
+                        {
+                            response.OnSendingHeaders(state =>
+                            {
+                                var resp = (OwinResponse)state;
+                                resp.Headers.Add("Retry-After", new string[] { core.RetryAfterFrom(throttleCounter.Timestamp, rateLimitPeriod) });
+                                resp.StatusCode = (int)QuotaExceededResponseCode;
+                                resp.ReasonPhrase = string.Format(message, rateLimit, rateLimitPeriod);
+                            }, response);
 
-                        return;
+                            return;
+                        }
                     }
                 }
             }
